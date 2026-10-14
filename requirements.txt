@@ -1,0 +1,5 @@
+# Core attack + experiments + web demo.
+# The attack itself (src/) uses ONLY the Python standard library.
+# These are needed only for plotting and the web dashboard:
+flask>=3.0
+matplotlib>=3.7
