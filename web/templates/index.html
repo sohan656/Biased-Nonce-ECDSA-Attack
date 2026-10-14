@@ -3,347 +3,320 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Biased-Nonce ECDSA Attack — Live Demo</title>
+<meta name="theme-color" content="#f1f4f0">
+<title>Biased-Nonce ECDSA | Cryptography Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
-    --bg:#0b0f17; --panel:#121823; --panel2:#0e141e;
-    --line:#223047; --ink:#e7eef7; --muted:#8aa0bd;
-    --dim:#5f7592; --accent:#39d98a; --accent2:#4aa8ff; --danger:#ff5d6c;
-    --warn:#ffcf5c; --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    --sans:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    color-scheme:light;
+    --paper:#f1f4f0; --white:#fbfcfa; --ink:#17241f; --muted:#65736c;
+    --faint:#8d9992; --line:#d7dfd9; --line-dark:#b9c6bd;
+    --green:#176d61; --green-dark:#124a43; --green-pale:#e3efea;
+    --red:#bb4c36; --red-pale:#f7e9e4; --gold:#a87523; --gold-pale:#f4eddb;
+    --sans:"DM Sans", sans-serif; --serif:"Newsreader", Georgia, serif;
+    --mono:"IBM Plex Mono", monospace;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:
-      radial-gradient(1200px 600px at 80% -10%,#15233a 0%,transparent 55%),
-      var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5}
-  a{color:var(--accent2)}
-  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
-  header.top{display:flex;align-items:flex-start;justify-content:space-between;
-      gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:20px}
-  .title h1{margin:0;font-size:24px;letter-spacing:-.3px}
-  .title .tag{color:var(--accent);font-family:var(--mono);font-size:12.5px;
-      text-transform:uppercase;letter-spacing:2px}
-  .title p{margin:6px 0 0;color:var(--muted);font-size:14px;max-width:640px}
-  .meta{font-family:var(--mono);font-size:12px;color:var(--dim);text-align:right}
-  .meta b{color:var(--muted);font-weight:500}
-
-  .grid{display:grid;grid-template-columns:320px 1fr;gap:22px;margin-top:24px}
-  @media(max-width:880px){.grid{grid-template-columns:1fr}}
-  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
-      border:1px solid var(--line);border-radius:14px;padding:18px}
-  .card h2{margin:0 0 14px;font-size:13px;text-transform:uppercase;
-      letter-spacing:1.5px;color:var(--muted);font-weight:600}
-
-  label.fld{display:block;margin:14px 0 6px;font-size:12.5px;color:var(--muted)}
-  .models{display:grid;gap:8px}
-  .models .opt{border:1px solid var(--line);border-radius:10px;padding:10px 12px;
-      cursor:pointer;transition:.15s;background:#0d1420}
-  .models .opt:hover{border-color:#30507e}
-  .models .opt.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-  .models .opt b{font-size:13.5px}
-  .models .opt span{display:block;color:var(--dim);font-size:11.5px;margin-top:2px;
-      font-family:var(--mono)}
-  .rangewrap{display:flex;align-items:center;gap:10px}
-  input[type=range]{flex:1;accent-color:var(--accent)}
-  .val{font-family:var(--mono);min-width:38px;text-align:right;color:var(--accent)}
-  .hint{font-size:11.5px;color:var(--dim);margin-top:4px;font-family:var(--mono)}
-  button.run{margin-top:18px;width:100%;padding:12px;border:none;border-radius:10px;
-      background:linear-gradient(90deg,var(--accent),#2fb673);color:#05140c;
-      font-weight:700;font-size:14px;cursor:pointer;letter-spacing:.3px}
-  button.run:disabled{opacity:.6;cursor:wait}
-
-  /* pipeline */
-  .pipe{display:grid;gap:9px}
-  .step{display:flex;align-items:center;gap:12px;border:1px solid var(--line);
-      border-radius:10px;padding:11px 13px;background:#0d1420;opacity:.5;transition:.25s}
-  .step.active{opacity:1;border-color:var(--accent2);background:#0e1726}
-  .step.done{opacity:1;border-color:#1f6f49;background:#0d1a14}
-  .dot{width:10px;height:10px;border-radius:50%;background:var(--dim);flex:none}
-  .step.active .dot{background:var(--accent2);box-shadow:0 0 10px var(--accent2)}
-  .step.done .dot{background:var(--accent)}
-  .step .nm{font-size:13.5px;flex:1}
-  .step .de{font-family:var(--mono);font-size:11px;color:var(--dim)}
-  .step .tm{font-family:var(--mono);font-size:11.5px;color:var(--muted);flex:none}
-
-  .verdict{margin-top:16px;border-radius:12px;padding:18px;text-align:center;display:none}
-  .verdict.ok{display:block;background:rgba(57,217,138,.08);border:1px solid #1f6f49}
-  .verdict.bad{display:block;background:rgba(255,93,108,.08);border:1px solid #7a2b33}
-  .verdict .big{font-size:20px;font-weight:800;letter-spacing:.5px}
-  .verdict.ok .big{color:var(--accent)} .verdict.bad .big{color:var(--danger)}
-  .verdict .sub{color:var(--muted);font-size:13px;margin-top:4px}
-
-  .keys{display:grid;gap:10px;margin-top:14px}
-  .keyrow{background:#0d1420;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-  .keyrow .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
-  .keyrow .v{font-family:var(--mono);font-size:12px;word-break:break-all;margin-top:3px;color:var(--ink)}
-  .keyrow.match{border-color:#1f6f49}
-
-  table.sigs{width:100%;border-collapse:collapse;margin-top:12px;font-family:var(--mono);font-size:11.5px}
-  table.sigs th{color:var(--muted);text-align:left;font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
-  table.sigs td{padding:5px 8px;border-bottom:1px solid #16202f;color:var(--dim)}
-
-  .noncebars{display:grid;gap:6px;margin-top:10px}
-  .nb{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px}
-  .nb .track{flex:1;height:14px;background:#0d1420;border:1px solid var(--line);border-radius:4px;overflow:hidden}
-  .nb .fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent))}
-  .nb .lab{color:var(--muted);min-width:66px}
-
-  .results{margin-top:28px}
-  .charts{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media(max-width:880px){.charts{grid-template-columns:1fr}}
-  .chartbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px}
-  .chartbox h3{margin:0 0 4px;font-size:13px}
-  .chartbox p{margin:0 0 10px;font-size:11.5px;color:var(--dim)}
-  canvas{max-height:230px}
-  .mtable{width:100%;border-collapse:collapse;font-size:13px}
-  .mtable th,.mtable td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
-  .mtable th{color:var(--muted);font-weight:500;font-size:12px}
-  .mtable td.mono{font-family:var(--mono)}
-  .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-family:var(--mono)}
-  .pill.ok{background:rgba(57,217,138,.14);color:var(--accent)}
-  .footer{margin-top:40px;color:var(--dim);font-size:12px;border-top:1px solid var(--line);padding-top:18px}
-  .spinner{display:inline-block;width:13px;height:13px;border:2px solid #2a3a52;border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
-  @keyframes sp{to{transform:rotate(360deg)}}
-  .empty{color:var(--dim);font-size:13px;text-align:center;padding:30px}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55}
+  button,input{font:inherit}
+  button:focus-visible,input:focus-visible{outline:3px solid #7aafa0;outline-offset:3px}
+  .page{max-width:1440px;margin:0 auto;padding:0 44px 36px}
+  .intro{display:grid;grid-template-columns:minmax(0,1fr) 240px;align-items:end;gap:30px;padding:34px 0 27px}
+  .eyebrow,.section-kicker{color:var(--green);font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase}
+  h1{max-width:850px;margin:7px 0 8px;font-family:var(--serif);font-size:40px;font-weight:500;line-height:1.08}
+  .intro p{max-width:760px;margin:0;color:var(--muted);font-size:14px}
+  .intro p strong{color:var(--ink);font-weight:600}
+  .spec-block{display:grid;grid-template-columns:1fr 1fr;gap:11px 18px;border-left:1px solid var(--line-dark);padding:5px 0 5px 20px}
+  .spec{display:grid;gap:2px}.spec span:first-child{color:var(--faint);font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.6px}
+  .spec span:last-child{font-size:12px;font-weight:600}
+  .workbench{display:grid;grid-template-columns:285px minmax(0,1fr);border-top:1px solid var(--line-dark);border-bottom:1px solid var(--line-dark);min-height:440px}
+  .controls{padding:23px 23px 22px 0;border-right:1px solid var(--line);}
+  .section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:18px}
+  .section-heading h2,.results-head h2{margin:0;font-size:12px;font-weight:700;letter-spacing:.65px;text-transform:uppercase}
+  .section-index{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .field-label{display:block;margin:19px 0 8px;font-size:11px;font-weight:700}
+  .models{display:grid;border-top:1px solid var(--line);}
+  .model-option{display:flex;align-items:center;justify-content:space-between;text-align:left;width:100%;padding:9px 8px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;transition:background .16s ease,color .16s ease}
+  .model-option:hover{background:#e8eeea}
+  .model-option.sel{background:var(--green-dark);color:#fff}
+  .model-option .model-name{font-size:12px;font-weight:600}
+  .model-option .model-desc{display:block;margin-top:1px;color:var(--muted);font-family:var(--mono);font-size:9px}
+  .model-option.sel .model-desc{color:#c6dbd3}
+  .model-option .model-mark{color:var(--green);font-family:var(--mono);font-size:11px}
+  .model-option.sel .model-mark{color:#d9e9e2}
+  .range-row{display:grid;grid-template-columns:1fr 38px;align-items:center;gap:12px}
+  input[type=range]{width:100%;height:20px;margin:0;accent-color:var(--green);cursor:pointer}
+  .value{color:var(--green-dark);font-family:var(--mono);font-size:13px;font-weight:600;text-align:right}
+  .hint{min-height:29px;margin-top:5px;color:var(--muted);font-family:var(--mono);font-size:9px;line-height:1.5}
+  .run{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:8px;padding:11px 13px;border:1px solid var(--green-dark);background:var(--green-dark);color:white;font-size:12px;font-weight:700;cursor:pointer;transition:background .16s ease,transform .16s ease}
+  .run:hover:not(:disabled){background:var(--green);transform:translateY(-1px)}
+  .run:disabled{opacity:.68;cursor:wait}
+  .run .arrow{font-family:var(--mono);font-size:16px;font-weight:400}
+  #runmsg{margin-top:8px;min-height:18px}
+  .instrument{padding:23px 0 22px 27px;min-width:0}
+  .instrument-top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:18px}
+  .instrument-top h2{margin:0;font-size:12px;font-weight:700;letter-spacing:.65px;text-transform:uppercase}
+  .instrument-top p{margin:0;color:var(--faint);font-family:var(--mono);font-size:9px}
+  .pipe{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line-dark);border-bottom:1px solid var(--line-dark)}
+  .step{position:relative;display:flex;flex-direction:column;min-height:99px;padding:13px 12px 10px 0;opacity:.58;transition:opacity .2s ease,background .2s ease}
+  .step:not(:last-child){border-right:1px solid var(--line);margin-right:12px}
+  .step.active,.step.done{opacity:1}
+  .step.active{background:linear-gradient(90deg,rgba(23,109,97,.07),transparent 85%)}
+  .step .step-top{display:flex;align-items:center;gap:8px;margin-bottom:13px}
+  .step .dot{display:block;width:7px;height:7px;border:1px solid var(--faint);background:transparent;flex:none}
+  .step.active .dot{border-color:var(--gold);background:var(--gold)}
+  .step.done .dot{border-color:var(--green);background:var(--green)}
+  .step .num{color:var(--faint);font-family:var(--mono);font-size:9px}
+  .step .nm{max-width:155px;font-size:11px;font-weight:600;line-height:1.35}
+  .step .de{margin-top:auto;color:var(--muted);font-family:var(--mono);font-size:9px;line-height:1.4}
+  .step .tm{margin-top:2px;color:var(--green-dark);font-family:var(--mono);font-size:9px}
+  .verdict{display:none;margin-top:17px;padding:13px 15px;border-left:3px solid transparent}
+  .verdict.ok{display:block;border-color:var(--green);background:var(--green-pale)}
+  .verdict.bad{display:block;border-color:var(--red);background:var(--red-pale)}
+  .verdict .big{font-size:12px;font-weight:700;letter-spacing:.2px}
+  .verdict.ok .big{color:var(--green-dark)}.verdict.bad .big{color:var(--red)}
+  .verdict .sub{margin-top:3px;color:var(--muted);font-size:11px}
+  .keys{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}
+  .keyrow{min-width:0;border-top:1px solid var(--line-dark);padding:9px 0}
+  .keyrow.match{border-color:var(--green)}
+  .keyrow .k{color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.65px;text-transform:uppercase}
+  .keyrow .v{overflow-wrap:anywhere;margin-top:5px;color:var(--ink);font-family:var(--mono);font-size:10px;line-height:1.6}
+  .detail-label{margin-top:14px;color:var(--muted);font-size:10px}
+  .noncebars{display:grid;gap:5px;margin-top:8px}
+  .nb{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:9px}
+  .nb .track{flex:1;height:7px;background:#e3e9e4;overflow:hidden}
+  .nb .fill{height:100%;background:var(--green)}
+  .nb .lab{min-width:54px;color:var(--muted)}
+  table.sigs{width:100%;border-collapse:collapse;margin-top:7px;font-family:var(--mono);font-size:9px;table-layout:fixed}
+  table.sigs th{color:var(--muted);text-align:left;font-weight:500;padding:6px;border-bottom:1px solid var(--line-dark)}
+  table.sigs td{overflow:hidden;text-overflow:ellipsis;padding:6px;border-bottom:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .results{padding-top:29px}
+  .results-head{display:flex;justify-content:space-between;align-items:baseline;gap:20px;padding-bottom:13px;border-bottom:1px solid var(--line-dark)}
+  .results-head h2{font-size:13px}
+  .trial-count{color:var(--muted);font-family:var(--mono);font-size:10px}
+  .charts{display:grid;grid-template-columns:1fr 1fr;column-gap:32px}
+  .chartbox{min-width:0;padding:17px 0 18px;border-bottom:1px solid var(--line)}
+  .chartbox h3{margin:0;font-size:12px;font-weight:700}
+  .chartbox p{margin:2px 0 10px;color:var(--muted);font-size:10px}
+  .chartbox canvas{display:block;width:100%;height:205px;max-height:205px}
+  .modeltable-wrap{overflow-x:auto;padding-top:10px}
+  .mtable{width:100%;border-collapse:collapse;font-size:11px}
+  .mtable th,.mtable td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  .mtable th{color:var(--muted);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  .mtable td.mono{font-family:var(--mono);font-size:10px}
+  .pill{display:inline-block;padding:2px 6px;background:var(--green-pale);color:var(--green-dark);font-family:var(--mono);font-size:10px;font-weight:600}
+  .empty{padding:32px 10px;color:var(--muted);font-family:var(--mono);font-size:10px;text-align:center}
+  .footer{display:flex;justify-content:space-between;gap:28px;margin-top:22px;padding-top:13px;border-top:1px solid var(--line-dark);color:var(--muted);font-size:10px}
+  .footer .formula{color:var(--green-dark);font-family:var(--mono);font-size:10px}
+  .spinner{display:inline-block;width:11px;height:11px;margin-right:5px;border:1.5px solid var(--line-dark);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(max-width:900px){.page{padding-right:25px;padding-left:25px}.workbench{grid-template-columns:250px minmax(0,1fr)}.controls{padding-right:17px}.instrument{padding-left:19px}.step:not(:last-child){margin-right:7px}.step .nm{font-size:10px}}
+  @media(max-width:680px){.page{padding:0 18px 25px}.intro{grid-template-columns:1fr;gap:17px;padding:25px 0 21px}h1{font-size:33px}.intro p{font-size:13px}.spec-block{grid-template-columns:repeat(4,1fr);gap:8px;border-left:0;border-top:1px solid var(--line);padding:11px 0 0}.spec span:last-child{font-size:10px}.workbench{grid-template-columns:1fr}.controls{border-right:0;border-bottom:1px solid var(--line-dark);padding:19px 0}.instrument{padding:20px 0}.models{grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--line)}.model-option{display:block;min-height:59px;padding:8px 6px;border-right:1px solid var(--line);border-bottom:0}.model-option:last-child{border-right:0}.model-option .model-name{font-size:10px}.model-option .model-desc{font-size:8px}.model-option .model-mark{display:none}.field-label{margin-top:14px}.run{margin-top:5px}.pipe{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:0}.step{min-height:86px}.step:nth-child(2){border-right:0;margin-right:0}.step:nth-child(1),.step:nth-child(2){border-bottom:1px solid var(--line)}.step:nth-child(3){padding-top:12px}.charts{grid-template-columns:1fr}.chartbox canvas{height:190px;max-height:190px}.footer{display:block}.footer .formula{display:block;margin-bottom:6px}}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <div class="title">
-      <div class="tag">Information Security Lab · ICT-3141</div>
-      <h1>Biased-Nonce ECDSA Private-Key Recovery</h1>
-      <p>Turn biased ECDSA signatures into a <b>Hidden Number Problem</b> and recover the
-         full private key with <b>LLL lattice reduction</b>. Runs live against Curve448 —
-         pure Python, no SageMath.</p>
+<main class="page">
+  <section class="intro" aria-labelledby="page-title">
+    <div>
+      <div class="eyebrow">Applied cryptanalysis / live experiment</div>
+      <h1 id="page-title">When a nonce gives something away.</h1>
+      <p>Measure how biased ECDSA signatures expose a private key. This experiment turns the <strong>Hidden Number Problem</strong> into a lattice, then searches it with pure-Python LLL.</p>
     </div>
-    <div class="meta">
-      <div><b>curve</b> Curve448</div>
-      <div><b>order n</b> 446-bit prime</div>
-      <div><b>attack</b> HNP + LLL</div>
+    <div class="spec-block" aria-label="Experiment parameters">
+      <div class="spec"><span>Target</span><span>ECDSA</span></div>
+      <div class="spec"><span>Curve</span><span>Curve448</span></div>
+      <div class="spec"><span>Order</span><span>446-bit</span></div>
+      <div class="spec"><span>Reduction</span><span>LLL</span></div>
     </div>
-  </header>
+  </section>
 
-  <div class="grid">
-    <!-- CONTROL PANEL -->
-    <div class="card" id="panel">
-      <h2>Attack configuration</h2>
-      <label class="fld">Nonce-bias model</label>
-      <div class="models" id="models">
-        <div class="opt sel" data-model="zero_msb"><b>Zero MSB</b>
-          <span>top l bits of k = 0</span></div>
-        <div class="opt" data-model="zero_lsb"><b>Zero LSB</b>
-          <span>bottom l bits of k = 0</span></div>
-        <div class="opt" data-model="known_msb"><b>Known MSB</b>
-          <span>top l bits of k leaked</span></div>
+  <section class="workbench" aria-label="Attack workbench">
+    <aside class="controls" id="panel">
+      <div class="section-heading"><h2>Configure run</h2><span class="section-index">01 / INPUT</span></div>
+      <span class="field-label" id="model-label">Nonce-bias model</span>
+      <div class="models" id="models" role="group" aria-labelledby="model-label">
+        <button class="model-option sel" type="button" data-model="zero_msb" aria-pressed="true"><span><span class="model-name">Zero MSB</span><span class="model-desc">top l bits = 0</span></span><span class="model-mark" aria-hidden="true">01</span></button>
+        <button class="model-option" type="button" data-model="zero_lsb" aria-pressed="false"><span><span class="model-name">Zero LSB</span><span class="model-desc">bottom l bits = 0</span></span><span class="model-mark" aria-hidden="true">02</span></button>
+        <button class="model-option" type="button" data-model="known_msb" aria-pressed="false"><span><span class="model-name">Known MSB</span><span class="model-desc">top l bits leaked</span></span><span class="model-mark" aria-hidden="true">03</span></button>
       </div>
 
-      <label class="fld">Bias <b>l</b> — bits known/zero per nonce</label>
-      <div class="rangewrap">
-        <input type="range" id="l" min="8" max="24" value="20">
-        <span class="val" id="lval">20</span>
-      </div>
+      <label class="field-label" for="l">Bias <b>l</b> / bits per nonce</label>
+      <div class="range-row"><input type="range" id="l" min="8" max="24" value="20" aria-describedby="lhint"><output class="value" id="lval" for="l">20</output></div>
       <div class="hint" id="lhint"></div>
 
-      <label class="fld">Signatures <b>t</b> collected</label>
-      <div class="rangewrap">
-        <input type="range" id="t" min="18" max="46" value="25">
-        <span class="val" id="tval">25</span>
-      </div>
+      <label class="field-label" for="t">Signatures <b>t</b> / collected</label>
+      <div class="range-row"><input type="range" id="t" min="18" max="46" value="25" aria-describedby="thint"><output class="value" id="tval" for="t">25</output></div>
       <div class="hint" id="thint"></div>
 
-      <button class="run" id="runbtn">▶ Run attack</button>
-      <div class="hint" id="runmsg" style="margin-top:10px"></div>
-    </div>
+      <button class="run" id="runbtn" type="button"><span>Run attack</span><span class="arrow" aria-hidden="true">-&gt;</span></button>
+      <div class="hint" id="runmsg" role="status" aria-live="polite"></div>
+    </aside>
 
-    <!-- LIVE OUTPUT -->
-    <div class="card" id="output">
-      <h2>Attack pipeline</h2>
-      <div class="pipe" id="pipe"></div>
-      <div class="verdict" id="verdict"></div>
-      <div id="details"></div>
-    </div>
-  </div>
-
-  <!-- EMPIRICAL RESULTS -->
-  <div class="results">
-    <div class="card">
-      <h2>Empirical results <span id="trialcount" style="color:var(--dim);font-weight:400"></span></h2>
-      <div class="charts">
-        <div class="chartbox">
-          <h3>Success rate vs bias (l)</h3>
-          <p>signatures t fixed — more known bits ⇒ easier recovery</p>
-          <canvas id="c_bias"></canvas>
-        </div>
-        <div class="chartbox">
-          <h3>Success rate vs #signatures (t)</h3>
-          <p>bias l fixed — more signatures ⇒ more constraints ⇒ recovery</p>
-          <canvas id="c_sigs"></canvas>
-        </div>
-        <div class="chartbox">
-          <h3>Runtime vs lattice dimension</h3>
-          <p>wall-clock seconds of our pure-Python LLL</p>
-          <canvas id="c_time"></canvas>
-        </div>
-        <div class="chartbox">
-          <h3>Model comparison</h3>
-          <p>recovery rate &amp; speed across the three bias models</p>
-          <div id="modeltable"><div class="empty">loading…</div></div>
-        </div>
+    <section class="instrument" id="output" aria-labelledby="pipeline-title">
+      <div class="instrument-top"><h2 id="pipeline-title">Attack pipeline</h2><p>02 / EXECUTION TRACE</p></div>
+      <div class="pipe" id="pipe" aria-live="polite">
+        <div class="step"><div class="step-top"><span class="dot"></span><span class="num">01</span></div><span class="nm">Key generation</span><span class="de">Awaiting run</span></div>
+        <div class="step"><div class="step-top"><span class="dot"></span><span class="num">02</span></div><span class="nm">Biased signing</span><span class="de">Awaiting run</span></div>
+        <div class="step"><div class="step-top"><span class="dot"></span><span class="num">03</span></div><span class="nm">Lattice construction</span><span class="de">Awaiting run</span></div>
+        <div class="step"><div class="step-top"><span class="dot"></span><span class="num">04</span></div><span class="nm">LLL + key recovery</span><span class="de">Awaiting run</span></div>
       </div>
-    </div>
-  </div>
+      <div class="verdict" id="verdict" role="status" aria-live="polite"></div>
+      <div id="details"></div>
+    </section>
+  </section>
 
-  <div class="footer">
-    HNP relation per signature: <span style="font-family:var(--mono);color:var(--muted)">k ≡ (z/s) + (r/s)·d  (mod n)</span>.
-    A biased k makes this small ⇒ a short lattice vector reveals d.
-    Mitigation: deterministic nonces (RFC 6979) + constant-time scalar multiplication.
-  </div>
-</div>
+  <section class="results" aria-labelledby="results-title">
+    <div class="results-head"><h2 id="results-title">Empirical results</h2><span class="trial-count" id="trialcount"></span></div>
+    <div class="charts">
+      <section class="chartbox"><h3>Recovery by bias</h3><p>Success rate as leaked bits per nonce increase</p><canvas id="c_bias" role="img" aria-label="Line chart of success rate by nonce bias"></canvas></section>
+      <section class="chartbox"><h3>Recovery by sample size</h3><p>Success rate as the number of signatures increases</p><canvas id="c_sigs" role="img" aria-label="Line chart of success rate by signature count"></canvas></section>
+      <section class="chartbox"><h3>Reduction cost</h3><p>Mean wall-clock time by lattice dimension</p><canvas id="c_time" role="img" aria-label="Line chart of runtime by lattice dimension"></canvas></section>
+      <section class="chartbox"><h3>Bias model comparison</h3><p>Recovery rate and mean runtime across nonce models</p><div class="modeltable-wrap" id="modeltable"><div class="empty">Loading experiment data...</div></div></section>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span class="formula">k = (z/s) + (r/s) d  (mod n)</span>
+    <span>A biased nonce creates a short lattice vector that can reveal d. Mitigate with deterministic nonces (RFC 6979) and constant-time scalar multiplication.</span>
+  </footer>
+</main>
 
 <script>
 const $ = s => document.querySelector(s);
 const STEPS = ["Key generation","Biased signing","Lattice construction","LLL reduction + key recovery"];
+const chartInstances = {};
 let model = "zero_msb";
 
-// --- controls ---
-document.querySelectorAll('#models .opt').forEach(o=>o.onclick=()=>{
-  document.querySelectorAll('#models .opt').forEach(x=>x.classList.remove('sel'));
-  o.classList.add('sel'); model=o.dataset.model; updateHints();
-});
+document.querySelectorAll('#models .model-option').forEach(option=>option.addEventListener('click',()=>{
+  document.querySelectorAll('#models .model-option').forEach(item=>{
+    item.classList.remove('sel');
+    item.setAttribute('aria-pressed','false');
+  });
+  option.classList.add('sel');
+  option.setAttribute('aria-pressed','true');
+  model=option.dataset.model;
+  updateHints();
+}));
+
 const lEl=$('#l'), tEl=$('#t');
 function updateHints(){
   const l=+lEl.value, t=+tEl.value;
   $('#lval').textContent=l; $('#tval').textContent=t;
   const leaked=l*t, need=446;
   $('#lhint').textContent = `each nonce leaks ${l} of 446 bits`;
-  const ratio=(leaked/need);
+  const ratio=leaked/need;
   let verdict = ratio<1 ? "below theoretical bound — expect failure"
               : ratio<1.15 ? "near the recovery boundary"
               : "comfortable margin — expect success";
-  $('#thint').textContent = `total leaked ≈ ${leaked} bits vs ${need}-bit key  (×${ratio.toFixed(2)}) — ${verdict}`;
+  $('#thint').textContent = `total leaked ≈ ${leaked} bits vs ${need}-bit key (×${ratio.toFixed(2)}) — ${verdict}`;
 }
-lEl.oninput=updateHints; tEl.oninput=updateHints; updateHints();
+lEl.addEventListener('input',updateHints); tEl.addEventListener('input',updateHints); updateHints();
 
-// --- run attack ---
-$('#runbtn').onclick = async ()=>{
+$('#runbtn').addEventListener('click',async()=>{
   const btn=$('#runbtn'); btn.disabled=true;
-  $('#runmsg').innerHTML='<span class="spinner"></span> running real attack on the server…';
+  $('#runmsg').innerHTML='<span class="spinner" aria-hidden="true"></span>Running attack on the server...';
   $('#verdict').className='verdict'; $('#details').innerHTML='';
-  // render pipeline skeleton
   const pipe=$('#pipe'); pipe.innerHTML='';
-  STEPS.forEach((s,i)=>{
+  STEPS.forEach((step,index)=>{
     pipe.insertAdjacentHTML('beforeend',
-      `<div class="step" id="st${i}"><span class="dot"></span>
-       <span class="nm">${s}</span><span class="de" id="de${i}"></span>
-       <span class="tm" id="tm${i}"></span></div>`);
+      `<div class="step" id="st${index}"><div class="step-top"><span class="dot"></span><span class="num">0${index+1}</span></div>
+       <span class="nm">${step}</span><span class="de" id="de${index}"></span>
+       <span class="tm" id="tm${index}"></span></div>`);
   });
-  // animate steps as "active" while waiting
-  let cur=0; $('#st0').classList.add('active');
-  const anim=setInterval(()=>{ if(cur<STEPS.length-1){cur++; $('#st'+cur).classList.add('active');}},400);
+  let current=0; $('#st0').classList.add('active');
+  const animation=setInterval(()=>{if(current<STEPS.length-1){current++;$('#st'+current).classList.add('active');}},400);
 
   try{
-    const res = await fetch('/api/attack',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model, l:+lEl.value, t:+tEl.value})});
-    const d = await res.json();
-    clearInterval(anim);
-    if(d.error){ $('#runmsg').textContent='error: '+d.error; btn.disabled=false; return; }
-    // fill step timings
-    d.stages.forEach((s,i)=>{
-      const el=$('#st'+i); el.classList.remove('active'); el.classList.add('done');
-      $('#de'+i).textContent=s.detail; $('#tm'+i).textContent=s.seconds+'s';
+    const response=await fetch('/api/attack',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model,l:+lEl.value,t:+tEl.value})});
+    const data=await response.json();
+    clearInterval(animation);
+    if(data.error){$('#runmsg').textContent='Error: '+data.error;btn.disabled=false;return;}
+    data.stages.forEach((stage,index)=>{
+      const element=$('#st'+index); element.classList.remove('active'); element.classList.add('done');
+      $('#de'+index).textContent=stage.detail; $('#tm'+index).textContent=stage.seconds+'s';
     });
-    renderVerdict(d); renderDetails(d);
-    $('#runmsg').textContent = `completed in ${d.total_seconds}s`;
-  }catch(err){ clearInterval(anim); $('#runmsg').textContent='request failed: '+err; }
+    renderVerdict(data); renderDetails(data);
+    $('#runmsg').textContent=`Completed in ${data.total_seconds}s`;
+  }catch(error){clearInterval(animation);$('#runmsg').textContent='Request failed: '+error;}
   btn.disabled=false;
-};
+});
 
-function renderVerdict(d){
-  const v=$('#verdict');
-  if(d.success && d.verified){
-    v.className='verdict ok';
-    v.innerHTML=`<div class="big">✓ PRIVATE KEY RECOVERED</div>
-      <div class="sub">recovered d re-derives the exact public key Q = d·G — lattice dim ${d.dim}, ${d.total_seconds}s</div>`;
+function renderVerdict(data){
+  const verdict=$('#verdict');
+  if(data.success && data.verified){
+    verdict.className='verdict ok';
+    verdict.innerHTML=`<div class="big">PRIVATE KEY RECOVERED</div>
+      <div class="sub">Recovered d re-derives the exact public key Q = d·G. Lattice dimension ${data.dim}; ${data.total_seconds}s.</div>`;
   }else{
-    v.className='verdict bad';
-    v.innerHTML=`<div class="big">✗ recovery failed at these parameters</div>
-      <div class="sub">not enough leaked information for our LLL — increase l or t and retry
-      (this is the measurable recovery boundary)</div>`;
+    verdict.className='verdict bad';
+    verdict.innerHTML='<div class="big">Recovery failed at these parameters</div><div class="sub">Increase l or t and retry to measure the recovery boundary.</div>';
   }
 }
 
-function renderDetails(d){
-  let html='';
-  // key comparison
-  html+=`<div class="keys">
-    <div class="keyrow"><div class="k">true private key d</div><div class="v">${d.d_true}</div></div>`;
-  if(d.d_rec){
-    const cls = d.success ? 'keyrow match' : 'keyrow';
-    html+=`<div class="${cls}"><div class="k">recovered private key${d.success?' ✓ match':''}</div>
-      <div class="v">${d.d_rec}</div></div>`;
+function renderDetails(data){
+  let html='<div class="keys"><div class="keyrow"><div class="k">True private key d</div><div class="v">'+data.d_true+'</div></div>';
+  if(data.d_rec){
+    const className=data.success?'keyrow match':'keyrow';
+    html+=`<div class="${className}"><div class="k">Recovered private key${data.success?' / match':''}</div><div class="v">${data.d_rec}</div></div>`;
   }
-  html+=`</div>`;
-
-  // recovered nonce smallness
-  if(d.recovered_nonce_bits && d.recovered_nonce_bits.length){
-    html+=`<div style="margin-top:16px;font-size:12px;color:var(--muted)">
-      Recovered nonces k = a·d + b (mod n) are tiny vs the full ${d.key_bits}-bit range — proof the bias was exploited:</div>
-      <div class="noncebars">`;
-    d.recovered_nonce_bits.forEach((n,i)=>{
-      const pct=Math.max(2,(n.bits/d.key_bits*100));
-      html+=`<div class="nb"><span class="lab">k${i} · ${n.bits}b</span>
-        <span class="track"><span class="fill" style="width:${pct}%"></span></span></div>`;
+  html+='</div>';
+  if(data.recovered_nonce_bits && data.recovered_nonce_bits.length){
+    html+=`<div class="detail-label">Recovered nonces k = a·d + b (mod n), shown relative to the ${data.key_bits}-bit key range.</div><div class="noncebars">`;
+    data.recovered_nonce_bits.forEach((nonce,index)=>{
+      const percentage=Math.max(2,nonce.bits/data.key_bits*100);
+      html+=`<div class="nb"><span class="lab">k${index} / ${nonce.bits}b</span><span class="track"><span class="fill" style="width:${percentage}%"></span></span></div>`;
     });
-    html+=`</div>`;
+    html+='</div>';
   }
-
-  // sample signatures
-  html+=`<div style="margin-top:16px;font-size:12px;color:var(--muted)">Sample of collected signatures:</div>
-    <table class="sigs"><tr><th>#</th><th>r</th><th>s</th><th>z = H(m)</th></tr>`;
-  d.sample_sigs.forEach((s,i)=>{
-    html+=`<tr><td>${i}</td><td>${s.r}</td><td>${s.s}</td><td>${s.z}</td></tr>`;
-  });
-  html+=`</table>`;
+  html+='<div class="detail-label">Sample of collected signatures</div><table class="sigs"><thead><tr><th scope="col">#</th><th scope="col">r</th><th scope="col">s</th><th scope="col">z = H(m)</th></tr></thead><tbody>';
+  data.sample_sigs.forEach((signature,index)=>{html+=`<tr><td>${index}</td><td title="${signature.r}">${signature.r}</td><td title="${signature.s}">${signature.s}</td><td title="${signature.z}">${signature.z}</td></tr>`;});
+  html+='</tbody></table>';
   $('#details').innerHTML=html;
 }
 
-// --- empirical results charts ---
-const chartOpts = (xlab,ylab,ymax)=>({
-  responsive:true,
-  plugins:{legend:{display:false}},
-  scales:{
-    x:{title:{display:true,text:xlab,color:'#8aa0bd'},ticks:{color:'#5f7592'},grid:{color:'#1a2535'}},
-    y:{title:{display:true,text:ylab,color:'#8aa0bd'},ticks:{color:'#5f7592'},grid:{color:'#1a2535'},
-       beginAtZero:true,max:ymax}
-  }
-});
+function chartOptions(xLabel,yLabel,yMax){
+  return {
+    responsive:true,maintainAspectRatio:false,
+    interaction:{intersect:false,mode:'index'},
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#17241f',titleFont:{family:'IBM Plex Mono',size:10},bodyFont:{family:'IBM Plex Mono',size:10},padding:10,displayColors:false}},
+    scales:{
+      x:{title:{display:true,text:xLabel,color:'#65736c',font:{family:'IBM Plex Mono',size:9}},ticks:{color:'#65736c',font:{family:'IBM Plex Mono',size:9},maxRotation:0},grid:{display:false},border:{color:'#b9c6bd'}},
+      y:{title:{display:true,text:yLabel,color:'#65736c',font:{family:'IBM Plex Mono',size:9}},ticks:{color:'#65736c',font:{family:'IBM Plex Mono',size:9},maxTicksLimit:5},grid:{color:'#e1e7e2'},border:{display:false},beginAtZero:true,max:yMax}
+    }
+  };
+}
+function updateChart(id,labels,values,color,xLabel,yLabel,yMax){
+  const config={type:'line',data:{labels,datasets:[{data:values,borderColor:color,backgroundColor:color+'18',fill:true,tension:.2,borderWidth:2,pointRadius:3,pointHoverRadius:5,pointBackgroundColor:'#fbfcfa',pointBorderColor:color,pointBorderWidth:2}]},options:chartOptions(xLabel,yLabel,yMax)};
+  if(chartInstances[id]){
+    chartInstances[id].data=config.data;
+    chartInstances[id].options=config.options;
+    chartInstances[id].update('none');
+  }else chartInstances[id]=new Chart($(id),config);
+}
 async function loadResults(){
-  const r = await fetch('/api/results'); const d = await r.json();
-  if(!d.available){ $('#trialcount').textContent='(run experiments.py to populate)'; return; }
-  $('#trialcount').textContent=`· ${d.total_trials} trials`;
-  const line=(id,s,xlab,color)=>new Chart($(id),{type:'line',
-    data:{labels:s.x,datasets:[{data:s.rate,borderColor:color,backgroundColor:color+'22',
-      fill:true,tension:.25,pointRadius:3}]},options:chartOpts(xlab,'success rate',1.05)});
-  if(d.vs_bias.x.length) line('#c_bias',d.vs_bias,'bias l (bits)','#39d98a');
-  if(d.vs_sigs.x.length) line('#c_sigs',d.vs_sigs,'# signatures t','#4aa8ff');
-  if(d.runtime.x.length) new Chart($('#c_time'),{type:'line',
-    data:{labels:d.runtime.x,datasets:[{data:d.runtime.seconds,borderColor:'#ffcf5c',
-      backgroundColor:'#ffcf5c22',fill:true,tension:.25,pointRadius:3}]},
-    options:chartOpts('lattice dimension','seconds',null)});
-  // model table
-  let mt='<table class="mtable"><tr><th>model</th><th>recovery rate</th><th>avg time</th><th>trials</th></tr>';
-  const names={zero_msb:'Zero MSB',zero_lsb:'Zero LSB',known_msb:'Known MSB'};
-  for(const m in d.models){const v=d.models[m];
-    mt+=`<tr><td>${names[m]||m}</td>
-      <td><span class="pill ok">${(v.rate*100).toFixed(0)}%</span></td>
-      <td class="mono">${v.avg_seconds}s</td><td class="mono">${v.trials}</td></tr>`;}
-  mt+='</table>';
-  $('#modeltable').innerHTML = Object.keys(d.models).length? mt : '<div class="empty">no model data yet</div>';
+  try{
+    const response=await fetch('/api/results'); const data=await response.json();
+    if(!data.available){$('#trialcount').textContent='No experiment data';return;}
+    $('#trialcount').textContent=`${data.total_trials} trials`;
+    if(data.vs_bias.x.length) updateChart('#c_bias',data.vs_bias.x,data.vs_bias.rate,'#176d61','Bias l / bits','Success rate',1.05);
+    if(data.vs_sigs.x.length) updateChart('#c_sigs',data.vs_sigs.x,data.vs_sigs.rate,'#bb4c36','Signatures t','Success rate',1.05);
+    if(data.runtime.x.length) updateChart('#c_time',data.runtime.x,data.runtime.seconds,'#a87523','Lattice dimension','Seconds',null);
+    let table='<table class="mtable"><thead><tr><th scope="col">Model</th><th scope="col">Recovery</th><th scope="col">Mean time</th><th scope="col">Trials</th></tr></thead><tbody>';
+    const names={zero_msb:'Zero MSB',zero_lsb:'Zero LSB',known_msb:'Known MSB'};
+    for(const name in data.models){const item=data.models[name];
+      table+=`<tr><td>${names[name]||name}</td><td><span class="pill">${(item.rate*100).toFixed(0)}%</span></td><td class="mono">${item.avg_seconds}s</td><td class="mono">${item.trials}</td></tr>`;
+    }
+    table+='</tbody></table>';
+    $('#modeltable').innerHTML=Object.keys(data.models).length?table:'<div class="empty">No model data yet</div>';
+  }catch(error){$('#trialcount').textContent='Experiment data unavailable';}
 }
 loadResults();
-setInterval(loadResults, 15000);   // refresh while experiments.py is still running
+setInterval(loadResults,15000);
 </script>
 </body>
 </html>
